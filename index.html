@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#9f1d17">
+<title>Moja służba</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Moja służba">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="banner">
+  <div class="unit">JRG Nowa Sól</div>
+  <h1>Moja służba</h1>
+  <nav id="tabs" class="tabs" hidden>
+    <button id="tabMine" type="button" class="tab active" aria-pressed="true">Moja służba</button>
+    <button id="tabAll" type="button" class="tab" aria-pressed="false">Rozkazy</button>
+  </nav>
+</header>
+
+<main>
+  <section id="disabledCard" class="state-card pending" hidden>
+    <div class="state-title">Usługa jest wyłączona przez administratora</div>
+  </section>
+
+  <section id="missingCard" class="stack" hidden>
+    <div class="state-card pending">
+      <div class="state-title">Nie ma Cię teraz w danych</div>
+      <div class="state-hint">Administrator mógł odebrać dostęp albo to chwilowy problem z danymi. Sprawdź później albo zapytaj administratora.</div>
+    </div>
+    <button id="missingRefreshButton" type="button" class="secondary">Sprawdź ponownie</button>
+    <button id="missingRequestButton" type="button" class="secondary">Poproś o nowy dostęp</button>
+  </section>
+
+  <form id="requestForm" class="stack" autocomplete="off" novalidate hidden>
+    <div class="state-title">Ten telefon nie ma jeszcze dostępu</div>
+    <p class="intro">Poproś administratora KPB o dostęp. Po zatwierdzeniu strona odblokuje się sama, tylko na tym telefonie. Dostęp jest ważny rok.</p>
+    <p id="pushAskNote" class="note" hidden>Telefon zapyta też o zgodę na powiadomienia: przypomnienie dzień przed oficerem lub dyżurem domowym. Możesz odmówić, dostęp i tak dostaniesz.</p>
+    <p id="iosHint" class="note" hidden>iPhone: najpierw dodaj tę stronę do ekranu (Udostępnij → „Do ekranu początkowego”) i poproś o dostęp już z ikonki. Dostęp z Safari nie przechodzi do ikonki.</p>
+    <p id="expiredText" class="error" hidden>Dostęp tego telefonu wygasł albo został odebrany. Poproś o nowy.</p>
+    <p id="lostText" class="error" hidden></p>
+    <div class="field">
+      <label for="nameInput">Imię i nazwisko</label>
+      <input id="nameInput" name="name" type="text" autocomplete="name" spellcheck="false" placeholder="np. Jan Kowalski" maxlength="60">
+      <p id="errorText" class="error" hidden></p>
+    </div>
+    <button id="requestButton" type="submit" class="primary">Poproś o dostęp</button>
+  </form>
+
+  <form id="pinView" class="stack" autocomplete="off" novalidate hidden>
+    <div id="pinTitle" class="state-title">Wpisz PIN</div>
+    <p id="pinIntro" class="intro"></p>
+    <div class="field">
+      <label for="pinInput">PIN (4–6 cyfr)</label>
+      <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6">
+    </div>
+    <div id="pinRepeatField" class="field" hidden>
+      <label for="pinRepeat">Powtórz PIN</label>
+      <input id="pinRepeat" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6">
+    </div>
+    <p id="pinError" class="error" hidden></p>
+    <button id="pinButton" type="submit" class="primary">Odblokuj</button>
+    <button id="pinForgotButton" type="button" class="secondary">Nie pamiętam PIN-u</button>
+  </form>
+
+  <section id="waitingView" class="stack" hidden>
+    <div class="state-card pending">
+      <div class="state-title">Czekasz na zatwierdzenie</div>
+      <div id="waitingInfo" class="state-hint"></div>
+      <div class="state-hint">Kod telefonu: <b id="waitingCode" class="code"></b></div>
+    </div>
+    <button id="sendButton" type="button" class="primary big">Wyślij prośbę (e-mail / SMS)</button>
+    <p class="note">Możesz zamknąć stronę. Odblokuje się sama.</p>
+    <p id="waitingError" class="error" hidden></p>
+    <p id="pushStatusText" class="note" hidden></p>
+    <button id="pushRetryButton" type="button" class="secondary" hidden>Spróbuj dołączyć powiadomienia</button>
+    <button id="cancelButton" type="button" class="link-button">Anuluj prośbę</button>
+  </section>
+
+  <section id="mineView" class="stack" hidden>
+    <div class="when">
+      <div class="when-label">Najbliższa służba</div>
+      <div id="resultDate" class="date"></div>
+      <div id="resultShift" class="shift"></div>
+    </div>
+
+    <div id="stateOn" class="state-card on" hidden>
+      <div class="state-band">Tak, jesteś w rozkazie</div>
+      <div class="state-body">
+        <div id="vehicleBlock">
+          <div class="field-label">Samochód</div>
+          <div id="resultVehicle" class="field-value"></div>
+        </div>
+        <div id="functionBlock">
+          <div class="field-label">Funkcja</div>
+          <div id="resultFunction" class="field-value"></div>
+        </div>
+        <div id="dutyBlock" hidden>
+          <div class="field-label">Dyżur</div>
+          <div id="resultDuty" class="duty-value"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="stateOff" class="state-card off" hidden>
+      <div class="state-title">Nie ma Cię w rozkazie</div>
+      <div class="state-hint">Na tę służbę nie jesteś wpisany na żaden samochód.</div>
+    </div>
+
+    <div id="statePending" class="state-card pending" hidden>
+      <div class="state-title">Rozkaz jeszcze niegotowy</div>
+      <div class="state-hint">Dowódca nie zapisał jeszcze rozkazu na tę służbę. Zajrzyj później.</div>
+    </div>
+
+    <div id="nextCard" class="next-card" hidden>
+      <div class="next-title">Dalej</div>
+      <div id="nextList"></div>
+    </div>
+
+    <p id="staleText" class="stale" hidden>Dane mogą być nieaktualne - ta służba już minęła.</p>
+    <p id="fullOffText" class="note" hidden>Podgląd pełnych rozkazów jest wyłączony przez administratora.</p>
+  </section>
+
+  <section id="allView" class="stack" hidden>
+    <div id="dayPicker" class="day-picker"></div>
+    <div id="rozkazHeader" class="rozkaz-header">
+      <div id="rozkazNumber" class="rozkaz-number"></div>
+      <div id="rozkazDate" class="rozkaz-date"></div>
+      <span id="rozkazMine" class="mine-badge" hidden>Twoja służba</span>
+    </div>
+    <div id="dutyStrip" class="duty-strip"></div>
+    <div id="rozkazBody" class="cars"></div>
+    <p id="noRozkazyText" class="note" hidden>Nie ma jeszcze zapisanych rozkazów na najbliższe dni.</p>
+    <p id="mineHint" class="note">Twoja pozycja jest wyróżniona na zielono.</p>
+  </section>
+
+  <section id="footer" class="stack" hidden>
+    <div id="pushCard" class="stack" hidden>
+      <p id="pushText" class="note"></p>
+      <button id="pushButton" type="button" class="secondary" hidden>Włącz powiadomienia</button>
+      <button id="pushSendButton" type="button" class="secondary" hidden>Wyślij do administratora</button>
+    </div>
+    <button id="refreshButton" type="button" class="secondary">Odśwież</button>
+    <p id="generatedText" class="note center"></p>
+    <button id="logoutButton" type="button" class="link-button danger">Usuń dostęp z tego telefonu</button>
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
